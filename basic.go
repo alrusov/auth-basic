@@ -23,6 +23,7 @@ type (
 	}
 
 	methodOptions struct {
+		HashedPassword bool `toml:"hashed-password"` // Пароль передается в хешированном виде
 	}
 )
 
@@ -115,24 +116,19 @@ func (ah *AuthHandler) Check(id uint64, prefix string, path string, w http.Respo
 		return nil, true
 	}
 
-	userDef, exists := ah.authCfg.Users[u]
-	if !exists {
-		auth.Log.Message(log.INFO, `[%d] Basic login error: user "%s" not found`, id, u)
+	identity, _, err := auth.StdCheckUser(u, p, ah.options.HashedPassword)
+	if err != nil {
+		auth.Log.Message(log.INFO, `[%d] Basic login error: %s`, id, err)
 		return nil, false
 	}
 
-	if userDef.Password != string(auth.Hash([]byte(p), []byte(u))) {
-		auth.Log.Message(log.INFO, `[%d] Basic login error: illegal password for "%s"`, id, u)
+	if identity == nil {
+		auth.Log.Message(log.INFO, `[%d] Basic login error: user "%s" not found or illegal password`, id, u)
 		return nil, false
 	}
 
-	return &auth.Identity{
-			Method: module,
-			User:   u,
-			Groups: userDef.Groups,
-			Extra:  nil,
-		},
-		false
+	identity.Method = module
+	return identity, false
 }
 
 //----------------------------------------------------------------------------------------------------------------------------//
