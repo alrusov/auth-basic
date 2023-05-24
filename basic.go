@@ -106,29 +106,29 @@ func (ah *AuthHandler) WWWAuthHeader() (name string, withRealm bool) {
 //----------------------------------------------------------------------------------------------------------------------------//
 
 // Check --
-func (ah *AuthHandler) Check(id uint64, prefix string, path string, w http.ResponseWriter, r *http.Request) (identity *auth.Identity, tryNext bool) {
+func (ah *AuthHandler) Check(id uint64, prefix string, path string, w http.ResponseWriter, r *http.Request) (identity *auth.Identity, tryNext bool, err error) {
 	if ah.cfg == nil || !ah.cfg.Enabled {
-		return nil, true
+		return nil, true, nil
 	}
 
 	u, p, ok := r.BasicAuth()
 	if !ok {
-		return nil, true
+		return nil, true, nil
 	}
 
-	identity, _, err := auth.StdCheckUser(u, p, ah.options.HashedPassword)
+	identity, _, err = auth.StdCheckUser(u, p, ah.options.HashedPassword)
 	if err != nil {
 		auth.Log.Message(log.INFO, `[%d] Basic login error: %s`, id, err)
-		return nil, false
+		return nil, false, err
 	}
 
 	if identity == nil {
 		auth.Log.Message(log.INFO, `[%d] Basic login error: user "%s" not found or illegal password`, id, u)
-		return nil, false
+		return nil, false, fmt.Errorf(`user "%s" not found or illegal password`, u)
 	}
 
 	identity.Method = module
-	return identity, false
+	return identity, false, nil
 }
 
 //----------------------------------------------------------------------------------------------------------------------------//
